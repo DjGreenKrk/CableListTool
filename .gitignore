@@ -1,0 +1,7 @@
+baza informacji/testy/
+baza informacji/grafiki/
+__pycache__/
+*.pyc
+build/
+dist/
+.venv/
