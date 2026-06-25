@@ -320,3 +320,21 @@ Zasady:
 * format to `KodTypu-Numer`, np. `ETH-10` albo `A-01`,
 * jeżeli typ sygnału ma kod eksportu po `=`, używany jest kod eksportu,
 * jeżeli typ sygnału nie ma kodu eksportu, używana jest nazwa typu sygnału.
+
+---
+
+# 2026-06-25 - dokument migracji Flutter + Dart
+
+Dodano dokument `baza informacji/MIGRACJA_FLUTTER_DART.md`.
+
+Dokument opisuje:
+
+* cel migracji z Python/PySide6 do Flutter + Dart,
+* docelowe platformy Windows i Android,
+* proponowaną architekturę projektu,
+* model danych Dart zgodny z obecnym JSON,
+* zasady migracji generatora oznaczeń,
+* eksport XLSX,
+* testy,
+* plan etapów,
+* ryzyka i kryteria akceptacji.

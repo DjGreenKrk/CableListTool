@@ -1,5 +1,5 @@
-baza informacji/testy/
-baza informacji/grafiki/
+docs/testy/
+docs/assets/
 __pycache__/
 *.pyc
 build/
