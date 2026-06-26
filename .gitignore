@@ -1,5 +1,7 @@
 docs/testy/
 docs/assets/
+.idea/
+.vs/
 __pycache__/
 *.pyc
 build/
