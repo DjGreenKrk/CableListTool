@@ -1,84 +1,69 @@
 # CableListTool
 
-> 🇵🇱 Narzędzie do inwentaryzacji, oznaczania i dokumentowania
-> okablowania.
->
-> 🇬🇧 Offline-first application for cable inventory, cable labeling and
-> documentation.
+Offline-first tool for cable inventory, labeling and documentation.
 
-![Flutter](https://img.shields.io/badge/Flutter-Main-blue)
-![Python](https://img.shields.io/badge/Python-Legacy-yellow)
-![Windows](https://img.shields.io/badge/Windows-10%2F11-success)
-![Android](https://img.shields.io/badge/Android-supported-success)
-![License](https://img.shields.io/badge/License-MIT-success)
+CableListTool is built for technicians documenting real installations: AV,
+lighting, control, electrical and similar systems. The active application is the
+Flutter version for Windows and Android. The original Python/PySide6 version is
+kept in `python/` as a reference implementation.
 
-------------------------------------------------------------------------
+## Current Version
 
-# 🇵🇱 O projekcie
+`v2.0.0`
 
-CableListTool to narzędzie stworzone przez technika dla techników.
-Powstało z myślą o dokumentowaniu istniejących instalacji AV,
-oświetleniowych, sterowania oraz elektrycznych. Projekt stawia na
-prostotę, szybkość działania i pracę całkowicie offline.
-
-## Dlaczego powstał?
-
-Większość programów zakłada, że instalacja została już zaprojektowana.
-CableListTool odwraca ten proces -- pozwala inwentaryzować istniejące
-obiekty, tworzyć połączenia z nieznanym końcem, odnajdywać przewody i
-automatycznie aktualizować dokumentację.
-
-## Najważniejsze funkcje
-
--   Praca offline
--   Projekty JSON
--   Zarządzanie szafami i punktami
--   Automatyczne oznaczenia przewodów
--   Scalanie nieznanych przewodów
--   Odwracanie kierunku połączeń
--   Eksport XLSX
--   Czytelny ciemny interfejs
-
-## Struktura projektu
-
--   `python/` -- oryginalna implementacja PySide6 (wersja referencyjna)
--   `flutter/` -- aktywnie rozwijana wersja Windows + Android
-
-## Roadmap
-
--   Rozwój wersji Flutter
--   Ulepszenia ergonomii
--   Druk etykiet
--   Import danych
--   Szablony projektów
-
-------------------------------------------------------------------------
-
-# 🇬🇧 About
-
-CableListTool is an offline-first application for documenting existing
-cable installations.
-
-It is designed for AV technicians, lighting engineers, system
-integrators and electricians.
-
-Unlike CAD software, CableListTool focuses on documenting existing
-installations rather than designing new ones.
+Versioning note: the last Python/PySide6 line was `v1.1.0`; Flutter starts as
+the second major generation at `v2.0.0`.
 
 ## Features
 
--   Offline first
--   JSON projects
--   Cabinet & endpoint management
--   Automatic cable labels
--   XLSX export
--   Unknown cable workflow
--   Windows & Android
+- Offline project workflow.
+- Local in-app project storage on Android and Windows.
+- JSON import/export for backup and interchange.
+- XLSX cable list export.
+- Cabinet and endpoint management.
+- Cable connections with unknown destination workflow.
+- Merge two unknown cable ends after identification.
+- Reverse cable direction.
+- Automatic cable labels and port labels.
+- Natural sorting for field-friendly names such as `RSC-1`, `RSC-2`, `RSC-10`.
+- Mobile-friendly Material 3 UI with GreenCrew branding.
 
-## Repository layout
+## Platforms
 
--   `python/` -- reference implementation
--   `flutter/` -- actively developed implementation
+- Android: supported, including phone and tablet layouts.
+- Windows 10/11: supported.
+
+## Repository Layout
+
+- `flutter/` - active Flutter/Dart application.
+- `python/` - legacy/reference Python implementation.
+- `docs/` - migration notes, branding, UX notes and implementation docs.
+
+## Build
+
+Use the Flutter SDK configured for this workspace:
+
+```powershell
+$env:PATH = "C:\Users\julek\SDK\flutter_windows_3.44.3-stable\flutter\bin;$env:PATH"
+cd flutter
+flutter pub get
+flutter test
+flutter build apk --release
+flutter build windows --release
+```
+
+Release artifacts:
+
+- Android APK: `flutter/build/app/outputs/flutter-apk/app-release.apk`
+- Windows app: `flutter/build/windows/x64/runner/Release/`
+
+## Project Storage
+
+The primary save path is now internal application storage. JSON is treated as a
+backup/import/export format rather than the main project database.
+
+On Android, JSON and XLSX export use the system file manager so the user can
+choose the target location.
 
 ## License
 
@@ -86,8 +71,6 @@ MIT
 
 ## Author
 
-Julian Szymański
-
-GreenCrew / GreenCrew Tools
-
+Julian Szymanski  
+GreenCrew / GreenCrew Tools  
 https://greencrew.pl

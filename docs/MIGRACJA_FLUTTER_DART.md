@@ -541,7 +541,7 @@ A-01
 * Opisać aktualny format JSON.
 * Zebrać przykładowe projekty testowe.
 * Zebrać przykładowe eksporty XLSX.
-* Ustalić, że Flutter v1 zapisuje `schema_version: 1`.
+* Ustalić, że pierwsza wersja Flutter (`v2.0.0` aplikacji) zapisuje `schema_version: 1`.
 
 ### Etap 1 - szkielet Flutter
 
@@ -675,4 +675,3 @@ Nie robić od razu:
 * pełnego systemu uprawnień użytkowników.
 
 Te tematy można dopisać później jako osobne moduły.
-

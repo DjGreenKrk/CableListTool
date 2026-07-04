@@ -427,3 +427,24 @@ Wynik:
 - `am start` zwraca `Status: ok` na obu emulatorach,
 - proces aplikacji pozostaje aktywny po starcie,
 - screenshoty telefonu i tabletu potwierdzaja wyswietlenie UI.
+
+## 2026-07-04 - Flutter v2.0.0
+
+Przygotowano release `v2.0.0`:
+
+- ostatnia linia Python miala wersje `v1.1.0`, dlatego Flutter startuje jako kolejna generacja `v2.x.x`,
+- podstawowy zapis projektow odbywa sie wewnatrz aplikacji,
+- JSON pelni role backupu/importu,
+- eksport JSON i XLSX na Androidzie korzysta z systemowego managera plikow,
+- mobilne listy szaf, punktow i kabli maja kafelkowy, responsywny uklad,
+- kafelki mozna odkliknac, a kable mozna zaznaczac dlugim przytrzymaniem do scalania,
+- zaktualizowano README pod GitHub.
+
+Weryfikacja release:
+
+```powershell
+flutter analyze
+flutter test
+flutter build apk --release
+flutter build windows --release
+```

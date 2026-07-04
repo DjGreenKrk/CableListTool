@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
@@ -5,6 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/project_controller.dart';
+import '../../data/document_saver.dart';
+import '../../data/project_codec.dart';
+import '../../data/xlsx_exporter.dart';
 import '../../domain/models/cabinet.dart';
 import '../../domain/models/connection.dart';
 import '../../domain/models/endpoint.dart';
@@ -121,13 +125,13 @@ class _CableShellState extends ConsumerState<CableShell> {
   }
 }
 
-class _TopBar extends StatelessWidget {
+class _TopBar extends ConsumerWidget {
   const _TopBar({required this.state});
 
   final ProjectState state;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final project = state.project;
     final title = project.name.trim().isEmpty ? 'Bez nazwy' : project.name;
     final code = project.code.trim().isEmpty ? 'bez kodu' : project.code;
@@ -186,8 +190,18 @@ class _TopBar extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               compact
-                  ? _DirtyIcon(isDirty: state.isDirty)
-                  : _DirtyBadge(isDirty: state.isDirty),
+                  ? _DirtyIcon(
+                      isDirty: state.isDirty,
+                      onSave: () => ref
+                          .read(projectControllerProvider.notifier)
+                          .saveInApp(),
+                    )
+                  : _DirtyBadge(
+                      isDirty: state.isDirty,
+                      onSave: () => ref
+                          .read(projectControllerProvider.notifier)
+                          .saveInApp(),
+                    ),
             ],
           );
         },
@@ -200,7 +214,7 @@ void _showAboutApp(BuildContext context) {
   showAboutDialog(
     context: context,
     applicationName: 'CableListTool',
-    applicationVersion: '0.1.0',
+    applicationVersion: '2.0.0',
     applicationLegalese: '© Julian Szymański / GreenCrew\nMIT',
     children: const [
       SizedBox(height: 12),
@@ -215,39 +229,52 @@ void _showAboutApp(BuildContext context) {
 }
 
 class _DirtyBadge extends StatelessWidget {
-  const _DirtyBadge({required this.isDirty});
+  const _DirtyBadge({required this.isDirty, required this.onSave});
 
   final bool isDirty;
+  final VoidCallback onSave;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: isDirty ? const Color(0xFF5B4524) : const Color(0xFF173821),
+    return Tooltip(
+      message: isDirty ? 'Zapisz projekt' : 'Projekt zapisany',
+      child: InkWell(
         borderRadius: BorderRadius.circular(6),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: Text(isDirty ? 'Niezapisane' : 'Zapisane'),
+        onTap: isDirty ? onSave : null,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: isDirty ? const Color(0xFF5B4524) : const Color(0xFF173821),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Text(isDirty ? 'Niezapisane' : 'Zapisane'),
+          ),
+        ),
       ),
     );
   }
 }
 
 class _DirtyIcon extends StatelessWidget {
-  const _DirtyIcon({required this.isDirty});
+  const _DirtyIcon({required this.isDirty, required this.onSave});
 
   final bool isDirty;
+  final VoidCallback onSave;
 
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: isDirty ? 'Niezapisane' : 'Zapisane',
-      child: Icon(
-        isDirty ? Icons.edit_note : Icons.check_circle_outline,
-        color: isDirty
-            ? Theme.of(context).colorScheme.secondary
-            : Theme.of(context).colorScheme.primary,
+      message: isDirty ? 'Zapisz projekt' : 'Projekt zapisany',
+      child: IconButton(
+        tooltip: isDirty ? 'Zapisz projekt' : 'Projekt zapisany',
+        onPressed: isDirty ? onSave : null,
+        icon: Icon(
+          isDirty ? Icons.edit_note : Icons.check_circle_outline,
+          color: isDirty
+              ? Theme.of(context).colorScheme.secondary
+              : Theme.of(context).colorScheme.primary,
+        ),
       ),
     );
   }
@@ -293,7 +320,7 @@ class _ProjectPageState extends ConsumerState<ProjectPage> {
     final state = ref.watch(projectControllerProvider);
     final project = state.project;
     final signature =
-        '${project.name}|${project.code}|${state.currentPath ?? ''}|${project.settings.toJson()}';
+        '${project.name}|${project.code}|${state.currentPath ?? ''}|${state.projectId ?? ''}|${project.settings.toJson()}';
     if (signature != _loadedProjectSignature) {
       _loadedProjectSignature = signature;
       _name.text = project.name;
@@ -327,13 +354,14 @@ class _ProjectPageState extends ConsumerState<ProjectPage> {
         ),
         IconButton(
           tooltip: 'Zapisz',
-          onPressed: () => _saveJsonWithConfirmation(context),
+          onPressed: () =>
+              ref.read(projectControllerProvider.notifier).saveInApp(),
           icon: const Icon(Icons.save_outlined),
         ),
         IconButton(
-          tooltip: 'Zapisz jako',
-          onPressed: () => _saveJsonAs(context),
-          icon: const Icon(Icons.save_as_outlined),
+          tooltip: 'Projekty w aplikacji',
+          onPressed: () => _showStoredProjects(context),
+          icon: const Icon(Icons.inventory_2_outlined),
         ),
         IconButton(
           tooltip: 'Otwórz',
@@ -359,6 +387,41 @@ class _ProjectPageState extends ConsumerState<ProjectPage> {
                     icon: const Icon(Icons.check),
                     label: const Text('Zastosuj'),
                   ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          _Panel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Projekty w aplikacji'),
+                const SizedBox(height: 12),
+                Text(
+                  state.projectId == null
+                      ? 'Projekt nie jest jeszcze zapisany w aplikacji.'
+                      : 'Projekt zapisany w aplikacji.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () => ref
+                          .read(projectControllerProvider.notifier)
+                          .saveInApp(),
+                      icon: const Icon(Icons.save_outlined),
+                      label: const Text('Zapisz w aplikacji'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => _showStoredProjects(context),
+                      icon: const Icon(Icons.inventory_2_outlined),
+                      label: const Text('Otwórz projekt'),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -493,6 +556,10 @@ class _ProjectPageState extends ConsumerState<ProjectPage> {
 
   Future<void> _saveJsonWithConfirmation(BuildContext context) async {
     final path = _path.text.trim();
+    if (path.isEmpty || path.startsWith('content://')) {
+      await _saveJsonAs(context);
+      return;
+    }
     if (path.isNotEmpty &&
         path != ref.read(projectControllerProvider).currentPath &&
         await File(path).exists() &&
@@ -522,17 +589,83 @@ class _ProjectPageState extends ConsumerState<ProjectPage> {
           : _fileName(state.currentPath!),
       'json',
     );
-    final location = await getSaveLocation(
-      acceptedTypeGroups: const [_jsonTypeGroup],
+    final path = await DocumentSaver.save(
       suggestedName: suggestedName,
+      mimeType: 'application/json',
+      acceptedTypeGroups: const [_jsonTypeGroup],
+      bytes: utf8.encode(ProjectCodec().encode(state.project)),
     );
-    if (location == null) {
+    if (path == null) {
       return;
     }
-    _path.text = _ensureExtension(location.path, 'json');
+    _path.text = _ensureExtension(path, 'json');
     if (context.mounted) {
-      await _saveJsonWithConfirmation(context);
+      _showSnack(context, 'Zapisano backup JSON.');
     }
+  }
+
+  Future<void> _showStoredProjects(BuildContext context) async {
+    await ref.read(projectControllerProvider.notifier).refreshSavedProjects();
+    if (!context.mounted) {
+      return;
+    }
+    final projects = ref.read(projectControllerProvider).savedProjects;
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Projekty', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 16),
+              if (projects.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Text(
+                    'Brak projektów zapisanych w aplikacji.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                )
+              else
+                SizedBox(
+                  height: projects.length > 4 ? 360 : projects.length * 76.0,
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: projects.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final item = projects[index];
+                      return ListTile(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(
+                            color: Theme.of(context).dividerColor,
+                          ),
+                        ),
+                        title: Text(item.name),
+                        subtitle: Text(
+                          item.code.isEmpty ? item.id : item.code,
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () async {
+                          Navigator.of(context).pop();
+                          await ref
+                              .read(projectControllerProvider.notifier)
+                              .openStoredProject(item.id);
+                        },
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -1229,14 +1362,6 @@ class ExportPage extends ConsumerStatefulWidget {
 class _ExportPageState extends ConsumerState<ExportPage> {
   final _path = TextEditingController();
 
-  static const _xlsxTypeGroup = XTypeGroup(
-    label: 'Excel XLSX',
-    extensions: ['xlsx'],
-    mimeTypes: [
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    ],
-  );
-
   @override
   void dispose() {
     _path.dispose();
@@ -1327,17 +1452,6 @@ class _ExportPageState extends ConsumerState<ExportPage> {
     );
   }
 
-  Future<void> _exportXlsxWithConfirmation(BuildContext context) async {
-    final path = _path.text.trim();
-    if (path.isNotEmpty && await File(path).exists() && context.mounted) {
-      final overwrite = await _confirmOverwrite(context, path);
-      if (!overwrite) {
-        return;
-      }
-    }
-    await ref.read(projectControllerProvider.notifier).exportXlsx(path);
-  }
-
   Future<void> _exportXlsxWithPicker(BuildContext context) async {
     final state = ref.read(projectControllerProvider);
     final suggestedName = _ensureExtension(
@@ -1346,16 +1460,27 @@ class _ExportPageState extends ConsumerState<ExportPage> {
           : _fileName(_path.text.trim()),
       'xlsx',
     );
-    final location = await getSaveLocation(
-      acceptedTypeGroups: const [_xlsxTypeGroup],
+    final path = await DocumentSaver.save(
       suggestedName: suggestedName,
+      mimeType:
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      acceptedTypeGroups: const [
+        XTypeGroup(
+          label: 'Excel XLSX',
+          extensions: ['xlsx'],
+          mimeTypes: [
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          ],
+        ),
+      ],
+      bytes: XlsxExporter().build(state.project),
     );
-    if (location == null) {
+    if (path == null) {
       return;
     }
-    _path.text = _ensureExtension(location.path, 'xlsx');
+    _path.text = _ensureExtension(path, 'xlsx');
     if (context.mounted) {
-      await _exportXlsxWithConfirmation(context);
+      _showSnack(context, 'Wyeksportowano XLSX.');
     }
   }
 }
@@ -1381,6 +1506,12 @@ Future<bool> _confirmOverwrite(BuildContext context, String path) async {
     },
   );
   return result ?? false;
+}
+
+void _showSnack(BuildContext context, String message) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(message)),
+  );
 }
 
 String _ensureExtension(String path, String extension) {

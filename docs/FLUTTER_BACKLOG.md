@@ -55,3 +55,26 @@ adb -s emulator-5554 install -r build\app\outputs\flutter-apk\app-debug.apk
 adb -s emulator-5556 shell am start -W -n pl.greencrew.tools.cablelisttool/.MainActivity
 adb -s emulator-5554 shell am start -W -n pl.greencrew.tools.cablelisttool/.MainActivity
 ```
+
+## 2026-07-04 - v2.0.0
+
+Zalozenie wersjonowania:
+
+- ostatnia wersja Python to `v1.1.0`,
+- pierwsza wersja Flutter jest oznaczona jako `v2.0.0`.
+
+Wykonane:
+
+- pelnoprawny zapis projektow w aplikacji,
+- JSON jako backup/import projektu,
+- eksport XLSX i JSON przez systemowy manager plikow na Androidzie,
+- responsywne kafelki szaf, punktow i kabli,
+- dlugie przytrzymanie kabla jako zaznaczenie do scalania,
+- klik w ikone niezapisanych zmian zapisuje projekt,
+- dokumentacja GitHub odswiezona pod Flutter jako glowna wersje.
+
+Nastepne sensowne kroki:
+
+- test manualny eksportu XLSX/JSON na fizycznym Androidzie,
+- podpisywanie release APK/AAB,
+- dopracowanie ekranu eksportu dla pustej listy kabli.

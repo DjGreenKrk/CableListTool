@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/app_project_store.dart';
 import '../data/project_repository.dart';
 import '../data/xlsx_exporter.dart';
 import '../domain/models/cabinet.dart';
@@ -19,12 +20,16 @@ class ProjectState {
   const ProjectState({
     this.project = const Project(name: 'Nowy projekt', code: 'PROJ'),
     this.currentPath,
+    this.projectId,
+    this.savedProjects = const [],
     this.isDirty = false,
     this.message = '',
   });
 
   final Project project;
   final String? currentPath;
+  final String? projectId;
+  final List<StoredProjectInfo> savedProjects;
   final bool isDirty;
   final String message;
 
@@ -33,13 +38,18 @@ class ProjectState {
   ProjectState copyWith({
     Project? project,
     String? currentPath,
+    String? projectId,
+    List<StoredProjectInfo>? savedProjects,
     bool clearPath = false,
+    bool clearProjectId = false,
     bool? isDirty,
     String? message,
   }) {
     return ProjectState(
       project: project ?? this.project,
       currentPath: clearPath ? null : currentPath ?? this.currentPath,
+      projectId: clearProjectId ? null : projectId ?? this.projectId,
+      savedProjects: savedProjects ?? this.savedProjects,
       isDirty: isDirty ?? this.isDirty,
       message: message ?? this.message,
     );
@@ -48,22 +58,67 @@ class ProjectState {
 
 class ProjectController extends Notifier<ProjectState> {
   late final ProjectRepository _repository;
+  late final AppProjectStore _appStore;
   late final XlsxExporter _xlsxExporter;
   var _idCounter = 0;
 
   @override
   ProjectState build() {
     _repository = ProjectRepository();
+    _appStore = AppProjectStore();
     _xlsxExporter = XlsxExporter();
+    Future.microtask(refreshSavedProjects);
     return const ProjectState();
   }
 
   void newProject() {
-    state = const ProjectState(
+    state = ProjectState(
       project: Project(name: 'Nowy projekt', code: 'PROJ'),
+      savedProjects: state.savedProjects,
       isDirty: true,
       message: 'Utworzono nowy projekt.',
     );
+  }
+
+  Future<void> refreshSavedProjects() async {
+    try {
+      state = state.copyWith(savedProjects: await _appStore.listProjects());
+    } on Object catch (error) {
+      state =
+          state.copyWith(message: 'Nie udało się odczytać projektów: $error');
+    }
+  }
+
+  Future<void> openStoredProject(String id) async {
+    try {
+      final project = await _appStore.loadProject(id);
+      state = state.copyWith(
+        project: project,
+        projectId: id,
+        clearPath: true,
+        isDirty: false,
+        message: 'Otwarto projekt z aplikacji.',
+      );
+      await refreshSavedProjects();
+    } on Object catch (error) {
+      state =
+          state.copyWith(message: 'Nie udało się otworzyć projektu: $error');
+    }
+  }
+
+  Future<void> saveInApp() async {
+    try {
+      final id = await _appStore.saveProject(state.project, state.projectId);
+      state = state.copyWith(
+        projectId: id,
+        clearPath: true,
+        isDirty: false,
+        message: 'Zapisano projekt w aplikacji.',
+      );
+      await refreshSavedProjects();
+    } on Object catch (error) {
+      state = state.copyWith(message: 'Nie udało się zapisać projektu: $error');
+    }
   }
 
   Future<void> openProject(String path) async {
@@ -72,6 +127,7 @@ class ProjectController extends Notifier<ProjectState> {
       state = ProjectState(
         project: project,
         currentPath: path.trim(),
+        savedProjects: state.savedProjects,
         message: 'Otwarto projekt.',
       );
     } on Object catch (error) {
@@ -80,9 +136,12 @@ class ProjectController extends Notifier<ProjectState> {
   }
 
   Future<void> saveProject([String? path]) async {
-    final targetPath =
-        path?.trim().isNotEmpty == true ? path!.trim() : state.currentPath;
-    if (targetPath == null || targetPath.isEmpty) {
+    if (path == null || path.trim().isEmpty) {
+      await saveInApp();
+      return;
+    }
+    final targetPath = path.trim();
+    if (targetPath.isEmpty) {
       state = state.copyWith(message: 'Podaj ścieżkę pliku JSON.');
       return;
     }
