@@ -34,6 +34,47 @@ class _CableShellState extends ConsumerState<CableShell> {
       const ExportPage(),
     ];
 
+    final compact = MediaQuery.sizeOf(context).width < 700;
+    if (compact) {
+      return Scaffold(
+        body: SafeArea(
+          child: Column(
+            children: [
+              _TopBar(state: state),
+              Expanded(child: pages[_selectedIndex]),
+            ],
+          ),
+        ),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _selectedIndex,
+          onDestinationSelected: (index) =>
+              setState(() => _selectedIndex = index),
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.description_outlined),
+              label: 'Projekt',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.dns_outlined),
+              label: 'Szafy',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.settings_input_component_outlined),
+              label: 'Punkty',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.route_outlined),
+              label: 'Kable',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.file_download_outlined),
+              label: 'Eksport',
+            ),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       body: SafeArea(
         child: Row(
@@ -115,11 +156,13 @@ class _TopBar extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 18),
                     Text(
                       code,
-                      style: TextStyle(
-                          color: Theme.of(context).colorScheme.primary),
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -357,13 +400,11 @@ class _ProjectPageState extends ConsumerState<ProjectPage> {
                       ),
                     ];
                     if (compact) {
-                      return Column(
-                        children: [
-                          for (final editor in editors) ...[
-                            editor,
-                            const SizedBox(height: 12),
-                          ],
-                        ],
+                      return _MobileSettingsEditorList(
+                        cabinetRules: _cabinetRules,
+                        endpointRules: _endpointRules,
+                        signalTypes: _signalTypes,
+                        statuses: _statuses,
                       );
                     }
                     return Row(
@@ -568,6 +609,22 @@ class _CabinetsPageState extends ConsumerState<CabinetsPage> {
               ),
           ],
         ),
+        mobileList: _RecordList(
+          emptyText: 'Brak szaf',
+          children: [
+            for (final cabinet in cabinets)
+              _RecordCard(
+                selected: cabinet.id == _selectedId,
+                title: cabinet.name,
+                subtitle: cabinet.cabinetType,
+                details: [
+                  ('Lokalizacja', cabinet.location),
+                  ('Priorytet', '${cabinet.priority}'),
+                ],
+                onTap: () => _load(cabinet),
+              ),
+          ],
+        ),
         form: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -648,6 +705,10 @@ class _CabinetsPageState extends ConsumerState<CabinetsPage> {
   }
 
   void _load(Cabinet cabinet) {
+    if (_selectedId == cabinet.id) {
+      _clear();
+      return;
+    }
     setState(() {
       _selectedId = cabinet.id;
       _name.text = cabinet.name;
@@ -743,6 +804,19 @@ class _EndpointsPageState extends ConsumerState<EndpointsPage> {
               ),
           ],
         ),
+        mobileList: _RecordList(
+          emptyText: 'Brak punktow',
+          children: [
+            for (final endpoint in endpoints)
+              _RecordCard(
+                selected: endpoint.id == _selectedId,
+                title: endpoint.name,
+                subtitle: endpoint.endpointType,
+                details: [('Lokalizacja', endpoint.location)],
+                onTap: () => _load(endpoint),
+              ),
+          ],
+        ),
         form: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -816,6 +890,10 @@ class _EndpointsPageState extends ConsumerState<EndpointsPage> {
   }
 
   void _load(Endpoint endpoint) {
+    if (_selectedId == endpoint.id) {
+      _clear();
+      return;
+    }
     setState(() {
       _selectedId = endpoint.id;
       _name.text = endpoint.name;
@@ -958,6 +1036,30 @@ class _ConnectionsPageState extends ConsumerState<ConnectionsPage> {
               ),
           ],
         ),
+        mobileList: _RecordList(
+          emptyText: 'Brak przewodow',
+          children: [
+            for (final connection in connections)
+              _RecordCard(
+                selected: _mergeSelection.contains(connection.id) ||
+                    connection.id == _selectedId,
+                title: labelsByConnection[connection.id]?.designation ??
+                    'Bez oznaczenia',
+                subtitle:
+                    '${_objectName(project, connection.sourceId)} -> ${_objectName(project, connection.destinationId, unknownDestinationName)}',
+                details: [
+                  (
+                    'Port',
+                    labelsByConnection[connection.id]?.portLabel ?? '',
+                  ),
+                  ('Typ', connection.signalType),
+                  ('Status', connection.status),
+                ],
+                onTap: () => _load(connection),
+                onLongPress: () => _toggleMergeSelection(connection.id),
+              ),
+          ],
+        ),
         form: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1065,6 +1167,10 @@ class _ConnectionsPageState extends ConsumerState<ConnectionsPage> {
   }
 
   void _load(Connection connection) {
+    if (_selectedId == connection.id) {
+      _clear();
+      return;
+    }
     setState(() {
       _selectedId = connection.id;
       _sourceId = connection.sourceId;
@@ -1306,8 +1412,10 @@ class _PageFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 700;
+
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(compact ? 12 : 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1327,10 +1435,15 @@ class _PageFrame extends StatelessWidget {
 }
 
 class _TableAndForm extends StatelessWidget {
-  const _TableAndForm({required this.table, required this.form});
+  const _TableAndForm({
+    required this.table,
+    required this.form,
+    this.mobileList,
+  });
 
   final Widget table;
   final Widget form;
+  final Widget? mobileList;
 
   @override
   Widget build(BuildContext context) {
@@ -1348,9 +1461,9 @@ class _TableAndForm extends StatelessWidget {
         if (compact) {
           return ListView(
             children: [
-              tableWidget,
-              const SizedBox(height: 16),
               formWidget,
+              const SizedBox(height: 16),
+              mobileList ?? tableWidget,
             ],
           );
         }
@@ -1375,8 +1488,10 @@ class _Panel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 700;
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(compact ? 12 : 16),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         border: Border.all(color: Theme.of(context).dividerColor),
@@ -1385,6 +1500,518 @@ class _Panel extends StatelessWidget {
       child: child,
     );
   }
+}
+
+class _RecordList extends StatelessWidget {
+  const _RecordList({
+    required this.emptyText,
+    required this.children,
+  });
+
+  final String emptyText;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    if (children.isEmpty) {
+      return _Panel(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Center(
+            child: Text(
+              emptyText,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 10.0;
+        const minTileWidth = 132.0;
+        const maxTileWidth = 220.0;
+        final columns =
+            (constraints.maxWidth / (minTileWidth + gap)).floor().clamp(1, 6);
+        final tileWidth =
+            ((constraints.maxWidth - gap * (columns - 1)) / columns)
+                .clamp(minTileWidth, maxTileWidth);
+
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final child in children)
+              SizedBox(width: tileWidth, child: child),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _RecordCard extends StatelessWidget {
+  const _RecordCard({
+    required this.title,
+    required this.subtitle,
+    required this.details,
+    required this.onTap,
+    this.onLongPress,
+    this.selected = false,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<(String, String)> details;
+  final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final borderColor = selected
+        ? theme.colorScheme.secondary
+        : theme.colorScheme.outline.withValues(alpha: 0.8);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 140),
+      decoration: BoxDecoration(
+        color: selected
+            ? theme.colorScheme.primary.withValues(alpha: 0.12)
+            : theme.colorScheme.surface,
+        border: Border.all(color: borderColor),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title.isEmpty ? 'Bez nazwy' : title,
+                style: theme.textTheme.titleMedium,
+              ),
+              if (subtitle.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(subtitle, style: theme.textTheme.bodySmall),
+              ],
+              if (details.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final item in details)
+                      if (item.$2.trim().isNotEmpty)
+                        _MetaChip(label: item.$1, value: item.$2),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MetaChip extends StatelessWidget {
+  const _MetaChip({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Text(
+          '$label: $value',
+          style: theme.textTheme.bodySmall,
+        ),
+      ),
+    );
+  }
+}
+
+class _MobileSettingsEditorList extends StatelessWidget {
+  const _MobileSettingsEditorList({
+    required this.cabinetRules,
+    required this.endpointRules,
+    required this.signalTypes,
+    required this.statuses,
+  });
+
+  final TextEditingController cabinetRules;
+  final TextEditingController endpointRules;
+  final TextEditingController signalTypes;
+  final TextEditingController statuses;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _RuleSection(
+          title: 'Szafy',
+          controller: cabinetRules,
+          withPriority: false,
+          initiallyExpanded: true,
+        ),
+        _RuleSection(
+          title: 'Punkty',
+          controller: endpointRules,
+          withPriority: true,
+        ),
+        _RuleSection(
+          title: 'Sygnaly',
+          controller: signalTypes,
+          withPriority: true,
+        ),
+        _StatusSection(controller: statuses),
+      ],
+    );
+  }
+}
+
+class _RuleSection extends StatefulWidget {
+  const _RuleSection({
+    required this.title,
+    required this.controller,
+    required this.withPriority,
+    this.initiallyExpanded = false,
+  });
+
+  final String title;
+  final TextEditingController controller;
+  final bool withPriority;
+  final bool initiallyExpanded;
+
+  @override
+  State<_RuleSection> createState() => _RuleSectionState();
+}
+
+class _RuleSectionState extends State<_RuleSection> {
+  @override
+  Widget build(BuildContext context) {
+    final rules = widget.withPriority
+        ? parseTypeRulesWithPriorities(widget.controller.text)
+        : parseTypeRules(widget.controller.text);
+
+    return ExpansionTile(
+      initiallyExpanded: widget.initiallyExpanded,
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: const EdgeInsets.only(bottom: 12),
+      title: Text(widget.title),
+      trailing: IconButton(
+        tooltip: 'Dodaj regule',
+        icon: const Icon(Icons.add),
+        onPressed: () => _editRule(context),
+      ),
+      children: [
+        if (rules.types.isEmpty)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Brak reguł',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        for (final itemType in rules.types)
+          _RuleTile(
+            name: itemType,
+            pattern: rules.rules[itemType] ?? '',
+            priority: rules.priorities[itemType],
+            onTap: () => _editRule(
+              context,
+              name: itemType,
+              pattern: rules.rules[itemType] ?? '',
+              priority: rules.priorities[itemType],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _editRule(
+    BuildContext context, {
+    String name = '',
+    String pattern = '',
+    int? priority,
+  }) async {
+    final result = await showModalBottomSheet<_RuleEditResult>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) {
+        return _RuleEditSheet(
+          name: name,
+          pattern: pattern,
+          priority: priority,
+          withPriority: widget.withPriority,
+        );
+      },
+    );
+    if (result == null || result.name.trim().isEmpty) {
+      return;
+    }
+
+    final parsed = widget.withPriority
+        ? parseTypeRulesWithPriorities(widget.controller.text)
+        : parseTypeRules(widget.controller.text);
+    final types = [...parsed.types];
+    final rules = {...parsed.rules};
+    final priorities = {...parsed.priorities};
+
+    if (name.isNotEmpty && name != result.name) {
+      types.remove(name);
+      rules.remove(name);
+      priorities.remove(name);
+    }
+    if (!types.contains(result.name)) {
+      types.add(result.name);
+    }
+    if (result.pattern.trim().isEmpty) {
+      rules.remove(result.name);
+    } else {
+      rules[result.name] = result.pattern.trim();
+    }
+    if (widget.withPriority &&
+        result.priority != null &&
+        result.priority! > 0) {
+      priorities[result.name] = result.priority!;
+    } else {
+      priorities.remove(result.name);
+    }
+
+    setState(() {
+      widget.controller.text = formatTypeRules(types, rules, priorities);
+    });
+  }
+}
+
+class _RuleTile extends StatelessWidget {
+  const _RuleTile({
+    required this.name,
+    required this.pattern,
+    required this.onTap,
+    this.priority,
+  });
+
+  final String name;
+  final String pattern;
+  final int? priority;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final example = _patternExample(pattern);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: theme.colorScheme.outline),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name, style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 4),
+                      Text(
+                        pattern.isEmpty ? 'Bez wzoru' : '$pattern -> $example',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                      if (priority != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Priorytet: $priority',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const Icon(Icons.edit_outlined),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RuleEditSheet extends StatefulWidget {
+  const _RuleEditSheet({
+    required this.name,
+    required this.pattern,
+    required this.withPriority,
+    this.priority,
+  });
+
+  final String name;
+  final String pattern;
+  final int? priority;
+  final bool withPriority;
+
+  @override
+  State<_RuleEditSheet> createState() => _RuleEditSheetState();
+}
+
+class _RuleEditSheetState extends State<_RuleEditSheet> {
+  late final TextEditingController _name;
+  late final TextEditingController _pattern;
+  late final TextEditingController _priority;
+
+  @override
+  void initState() {
+    super.initState();
+    _name = TextEditingController(text: widget.name);
+    _pattern = TextEditingController(text: widget.pattern);
+    _priority = TextEditingController(text: widget.priority?.toString() ?? '');
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _pattern.dispose();
+    _priority.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    final example = _patternExample(_pattern.text);
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, bottom + 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Regula nazwy', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 18),
+          TextField(
+            controller: _name,
+            decoration: const InputDecoration(labelText: 'Nazwa w aplikacji'),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _pattern,
+            decoration: const InputDecoration(labelText: 'Wzor oznaczenia'),
+            onChanged: (_) => setState(() {}),
+          ),
+          if (widget.withPriority) ...[
+            const SizedBox(height: 16),
+            TextField(
+              controller: _priority,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Priorytet'),
+            ),
+          ],
+          const SizedBox(height: 14),
+          Text('Podglad: $example'),
+          const SizedBox(height: 8),
+          Text(
+            'N - numer, NN - minimum dwie cyfry, NNN - minimum trzy cyfry',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(context).pop(
+              _RuleEditResult(
+                name: _name.text.trim(),
+                pattern: _pattern.text.trim(),
+                priority: int.tryParse(_priority.text.trim()),
+              ),
+            ),
+            icon: const Icon(Icons.save_outlined),
+            label: const Text('Zapisz'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RuleEditResult {
+  const _RuleEditResult({
+    required this.name,
+    required this.pattern,
+    required this.priority,
+  });
+
+  final String name;
+  final String pattern;
+  final int? priority;
+}
+
+class _StatusSection extends StatelessWidget {
+  const _StatusSection({required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final statuses = linesToList(controller.text);
+
+    return ExpansionTile(
+      tilePadding: EdgeInsets.zero,
+      title: const Text('Statusy'),
+      childrenPadding: const EdgeInsets.only(bottom: 12),
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final status in statuses) Chip(label: Text(status)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: controller,
+          minLines: 3,
+          maxLines: 5,
+          decoration: const InputDecoration(labelText: 'Statusy'),
+        ),
+      ],
+    );
+  }
+}
+
+String _patternExample(String pattern) {
+  if (pattern.trim().isEmpty) {
+    return '-';
+  }
+  return pattern.replaceAllMapped(RegExp(r'N+'), (match) {
+    final width = match.group(0)!.length;
+    return '1'.padLeft(width, '0');
+  });
 }
 
 class _SummaryStrip extends StatelessWidget {
